@@ -79,8 +79,8 @@ def main():
     print_metrics(best_metrics, title=f"KNN Classifier Terbaik (K = {best_k})")
     print(f"      => Waktu Pengujian KNN: {best_pred_time:.3f} detik")
 
-    # 5. Memanggil Model Naive Bayes (Sebagai Integrasi Awal / Boilerplate)
-    print("\n[5/5] Memanggil Model Gaussian Naive Bayes (Placeholder/Boilerplate)...")
+    # 5. Memanggil Model Naive Bayes
+    print("\n[5/5] Melatih dan Menguji Model Gaussian Naive Bayes (From Scratch)...")
     gnb = GaussianNaiveBayes()
     
     start_train_nb = time.time()
@@ -92,12 +92,10 @@ def main():
     end_pred_nb = time.time()
     
     metrics_nb = calculate_metrics(y_test, y_pred_nb)
-    print_metrics(metrics_nb, title="Gaussian Naive Bayes (Templat)")
+    print_metrics(metrics_nb, title="Gaussian Naive Bayes")
     print(f"      => Waktu Latih NB  : {end_train_nb - start_train_nb:.6f} detik")
     print(f"      => Waktu Prediksi NB: {end_pred_nb - start_pred_nb:.6f} detik")
-    print("\n      *Catatan: Model Naive Bayes saat ini mengembalikan prediksi templat (default kelas pertama).")
-    print("       Rekan kelompok Anda dapat langsung mengimplementasikannya di 'src/model_naive_bayes.py'")
-    print("       dan hasil perbandingannya akan langsung terupdate di sini.")
+
 
 if __name__ == "__main__":
     main()

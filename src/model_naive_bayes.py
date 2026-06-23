@@ -3,9 +3,6 @@ import math
 class GaussianNaiveBayes:
     """
     Gaussian Naive Bayes Classifier implemented from scratch.
-    
-    NOTE: This model is to be completed by Rayazka's partner.
-    Below is the boilerplate code with guidelines and structure for integration.
     """
     def __init__(self):
         self.classes = []
@@ -23,21 +20,43 @@ class GaussianNaiveBayes:
             X (list of lists): Training features.
             y (list): Training labels.
         """
-        # --- TODO: Partner's Implementation ---
-        # 1. Identify unique classes (e.g., [0, 1]) and save to self.classes.
-        # 2. Compute prior probability P(y) for each class and save to self.priors.
-        # 3. Separate features in X by their class label in y.
-        # 4. For each class, compute the mean and variance of each feature column:
-        #    - Mean = sum(values) / count
-        #    - Variance = sum((val - mean) ^ 2) / count
-        #    - Store lists of means and variances in self.means and self.variances.
-        # --------------------------------------
-        
-        # Temporary placeholder for integration testing (predicting all 0s)
+        n_samples = len(X)
         self.classes = list(set(y))
-        self.priors = {c: y.count(c) / len(y) for c in self.classes}
+        
+        # 1. Compute class priors: P(c) = count(c) / total_samples
+        for c in self.classes:
+            class_count = sum(1 for label in y if label == c)
+            self.priors[c] = class_count / n_samples
+            
+        # Separate features in X by class
+        X_by_class = {c: [] for c in self.classes}
+        for features, label in zip(X, y):
+            X_by_class[label].append(features)
+            
+        # 2. For each class, compute mean and variance for each feature column
+        num_features = len(X[0])
+        for c in self.classes:
+            self.means[c] = []
+            self.variances[c] = []
+            class_samples = X_by_class[c]
+            num_class_samples = len(class_samples)
+            
+            # Compute means
+            for j in range(num_features):
+                feature_vals = [sample[j] for sample in class_samples]
+                mean_val = sum(feature_vals) / num_class_samples
+                self.means[c].append(mean_val)
+                
+            # Compute variances
+            for j in range(num_features):
+                feature_vals = [sample[j] for sample in class_samples]
+                mean_val = self.means[c][j]
+                # Variance: sum((x - mean)^2) / count
+                variance_val = sum((val - mean_val) ** 2 for val in feature_vals) / num_class_samples
+                self.variances[c].append(variance_val)
+                
         self.is_fitted = True
-        print("[Naive Bayes] Boilerplate fit executed. (Waiting for actual implementation)")
+        print("[Naive Bayes] Model successfully trained from scratch.")
 
     def _calculate_gaussian_pdf(self, x_val, mean, variance):
         """
@@ -52,15 +71,24 @@ class GaussianNaiveBayes:
         Returns:
             float: Probability density.
         """
-        # --- TODO: Partner's Implementation ---
-        # Hint: Add a small epsilon (e.g., 1e-9) to the variance to avoid division by zero!
-        # --------------------------------------
-        return 1.0
+        # Add a small epsilon to avoid division by zero
+        eps = 1e-9
+        var = variance + eps
+        
+        # Calculate exponents
+        exponent = math.exp(-((x_val - mean) ** 2) / (2 * var))
+        
+        # Calculate full PDF
+        return (1.0 / math.sqrt(2.0 * math.pi * var)) * exponent
 
     def predict_one(self, x):
         """
         Predicts the class label for a single feature vector.
-        Calculates the posterior probability for each class: P(y | X) proportional to P(y) * prod( P(x_i | y) )
+        Calculates the posterior probability for each class: 
+        P(y | X) is proportional to P(y) * prod( P(x_i | y) )
+        
+        We use log sums to prevent floating point underflow:
+        log(P(y | X)) = log(P(y)) + sum( log(P(x_i | y)) )
         
         Args:
             x (list): Feature vector.
@@ -71,13 +99,27 @@ class GaussianNaiveBayes:
         if not self.is_fitted:
             raise ValueError("Model is not fitted yet!")
             
-        # --- TODO: Partner's Implementation ---
-        # Hint: Use logarithms to prevent underflow: 
-        # log(P(y | X)) = log(P(y)) + sum( log(P(x_i | y)) )
-        # Compare log posteriors for all classes and return the one with the highest value.
-        # --------------------------------------
-        
-        return self.classes[0] # Temporary placeholder
+        posteriors = {}
+        for c in self.classes:
+            # log( P(y) )
+            log_prior = math.log(self.priors[c])
+            
+            # sum( log( P(x_i | y) ) )
+            log_likelihood = 0.0
+            for j in range(len(x)):
+                mean = self.means[c][j]
+                variance = self.variances[c][j]
+                
+                pdf_val = self._calculate_gaussian_pdf(x[j], mean, variance)
+                
+                # Use a small epsilon to prevent math.log(0) error if pdf_val is 0
+                eps = 1e-15
+                log_likelihood += math.log(pdf_val + eps)
+                
+            posteriors[c] = log_prior + log_likelihood
+            
+        # Return the class with the highest log posterior probability
+        return max(posteriors, key=posteriors.get)
 
     def predict(self, X):
         """
