@@ -2,10 +2,6 @@ Proyek ini bertujuan untuk memprediksi cuaca harian (Hujan vs Tidak Hujan) di wi
 1. **K-Nearest Neighbors (KNN)**
 2. **Gaussian Naive Bayes**
 
-## Anggota Kelompok
-* **Rayazka** (NIM: ...) - Implementasi KNN, Preprocessing,
-* **Partner** (NIM: ...) - Implementasi Gaussian Naive Bayes.
-
 ## Struktur Folder
 ```
 ├── data/
