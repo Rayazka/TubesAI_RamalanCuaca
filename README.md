@@ -1,12 +1,9 @@
-# TubesAI_RamalanCuaca
-Proyek Akhir Project Based Learning (PBL) Mata Kuliah Kecerdasan Buatan (Artificial Intelligence) - S1 Rekayasa Perangkat Lunak.
-
 Proyek ini bertujuan untuk memprediksi cuaca harian (Hujan vs Tidak Hujan) di wilayah Kelapa Gading, Jakarta Utara menggunakan dua model klasifikasi yang dibangun dari awal (*from scratch*):
 1. **K-Nearest Neighbors (KNN)**
 2. **Gaussian Naive Bayes**
 
 ## Anggota Kelompok
-* **Rayazka** (NIM: ...) - Implementasi KNN, Preprocessing, Evaluasi, dan Integrasi.
+* **Rayazka** (NIM: ...) - Implementasi KNN, Preprocessing,
 * **Partner** (NIM: ...) - Implementasi Gaussian Naive Bayes.
 
 ## Struktur Folder
