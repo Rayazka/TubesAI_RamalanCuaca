@@ -1,134 +1,103 @@
-import math
+import numpy as np
 
 class GaussianNaiveBayes:
     """
-    Gaussian Naive Bayes Classifier implemented from scratch.
+    Model Gaussian Naive Bayes Classifier yang diimplementasikan secara manual
+    dengan memanfaatkan operasi vektor dan matriks NumPy untuk performa tinggi.
     """
     def __init__(self):
         self.classes = []
-        self.priors = {}       # Prior probabilities: {class_label: P(class)}
-        self.means = {}        # Means per feature per class: {class_label: [mean_f1, mean_f2, ...]}
-        self.variances = {}    # Variances per feature per class: {class_label: [var_f1, var_f2, ...]}
+        self.priors = {}       # Prior P(y) untuk setiap kelas
+        self.means = {}        # Rata-rata fitur per kelas: {kelas: np.ndarray}
+        self.variances = {}    # Varians fitur per kelas: {kelas: np.ndarray}
         self.is_fitted = False
 
     def fit(self, X, y):
         """
-        Trains the Gaussian Naive Bayes model.
-        Calculates class priors, feature means, and feature variances.
+        Melatih model Naive Bayes menggunakan operasi rata-rata dan varians kolom NumPy.
         
-        Args:
-            X (list of lists): Training features.
-            y (list): Training labels.
+        Parameter:
+            X (np.ndarray): Fitur data training berdimensi (n_samples, n_features).
+            y (np.ndarray): Target label data training berdimensi (n_samples,).
         """
         n_samples = len(X)
-        self.classes = list(set(y))
+        self.classes = np.unique(y) # Dapatkan semua kelas unik secara otomatis
         
-        # 1. Compute class priors: P(c) = count(c) / total_samples
         for c in self.classes:
-            class_count = sum(1 for label in y if label == c)
-            self.priors[c] = class_count / n_samples
+            # Saring baris yang memiliki kelas target c (boolean indexing)
+            X_c = X[y == c]
             
-        # Separate features in X by class
-        X_by_class = {c: [] for c in self.classes}
-        for features, label in zip(X, y):
-            X_by_class[label].append(features)
+            # 1. Hitung Prior P(y = c)
+            self.priors[c] = len(X_c) / n_samples
             
-        # 2. For each class, compute mean and variance for each feature column
-        num_features = len(X[0])
-        for c in self.classes:
-            self.means[c] = []
-            self.variances[c] = []
-            class_samples = X_by_class[c]
-            num_class_samples = len(class_samples)
+            # 2. Hitung rata-rata dan varians kolom (axis=0) secara paralel menggunakan NumPy
+            self.means[c] = np.mean(X_c, axis=0)
+            self.variances[c] = np.var(X_c, axis=0)
             
-            # Compute means
-            for j in range(num_features):
-                feature_vals = [sample[j] for sample in class_samples]
-                mean_val = sum(feature_vals) / num_class_samples
-                self.means[c].append(mean_val)
-                
-            # Compute variances
-            for j in range(num_features):
-                feature_vals = [sample[j] for sample in class_samples]
-                mean_val = self.means[c][j]
-                # Variance: sum((x - mean)^2) / count
-                variance_val = sum((val - mean_val) ** 2 for val in feature_vals) / num_class_samples
-                self.variances[c].append(variance_val)
-                
         self.is_fitted = True
-        print("[Naive Bayes] Model successfully trained from scratch.")
+        print("[Naive Bayes] Model berhasil dilatih secara efisien dengan NumPy.")
 
-    def _calculate_gaussian_pdf(self, x_val, mean, variance):
+    def _calculate_log_likelihood(self, x, mean, variance):
         """
-        Calculates the probability density function (PDF) value for Gaussian distribution:
-        P(x_i | y) = (1 / sqrt(2 * pi * var)) * exp( - (x_i - mean)^2 / (2 * var) )
+        Menghitung penjumlahan log-likelihood P(X | y) secara vektor untuk semua fitur sekaligus.
         
-        Args:
-            x_val (float): Feature value.
-            mean (float): Mean of the feature in the class.
-            variance (float): Variance of the feature in the class.
+        Rumus Log-PDF Gaussian:
+        log(P(x_i | y)) = -0.5 * log(2 * pi * variance) - ((x_i - mean)^2 / (2 * variance))
+        
+        Parameter:
+            x (np.ndarray): Vektor fitur data uji tunggal (n_features,).
+            mean (np.ndarray): Vektor rata-rata fitur pada kelas (n_features,).
+            variance (np.ndarray): Vektor varians fitur pada kelas (n_features,).
             
-        Returns:
-            float: Probability density.
+        Return:
+            float: Total penjumlahan log-likelihood untuk seluruh fitur.
         """
-        # Add a small epsilon to avoid division by zero
+        # Epsilon kecil agar tidak terjadi pembagian dengan nol
         eps = 1e-9
         var = variance + eps
         
-        # Calculate exponents
-        exponent = math.exp(-((x_val - mean) ** 2) / (2 * var))
+        # Hitung log probabilitas densitas Gaussian untuk seluruh kolom fitur sekaligus
+        log_pdf = -0.5 * np.log(2.0 * np.pi * var) - ((x - mean) ** 2) / (2.0 * var)
         
-        # Calculate full PDF
-        return (1.0 / math.sqrt(2.0 * math.pi * var)) * exponent
+        # Jumlahkan log-likelihood dari semua fitur (menggantikan loop perkalian PDF)
+        return np.sum(log_pdf)
 
     def predict_one(self, x):
         """
-        Predicts the class label for a single feature vector.
-        Calculates the posterior probability for each class: 
-        P(y | X) is proportional to P(y) * prod( P(x_i | y) )
+        Memprediksi kelas untuk satu vektor sampel uji.
+        P(y | X) dihitung melalui penjumlahan log prior dan log likelihood.
         
-        We use log sums to prevent floating point underflow:
-        log(P(y | X)) = log(P(y)) + sum( log(P(x_i | y)) )
-        
-        Args:
-            x (list): Feature vector.
+        Parameter:
+            x (np.ndarray): Vektor fitur data uji tunggal.
             
-        Returns:
-            int: Predicted class.
+        Return:
+            int: Label kelas hasil prediksi.
         """
         if not self.is_fitted:
-            raise ValueError("Model is not fitted yet!")
+            raise ValueError("Model belum dilatih!")
             
         posteriors = {}
         for c in self.classes:
-            # log( P(y) )
-            log_prior = math.log(self.priors[c])
+            # log( P(c) )
+            log_prior = math_log = np.log(self.priors[c])
             
-            # sum( log( P(x_i | y) ) )
-            log_likelihood = 0.0
-            for j in range(len(x)):
-                mean = self.means[c][j]
-                variance = self.variances[c][j]
-                
-                pdf_val = self._calculate_gaussian_pdf(x[j], mean, variance)
-                
-                # Use a small epsilon to prevent math.log(0) error if pdf_val is 0
-                eps = 1e-15
-                log_likelihood += math.log(pdf_val + eps)
-                
+            # Menghitung sum( log( P(x_i | c) ) ) secara vektor
+            log_likelihood = self._calculate_log_likelihood(x, self.means[c], self.variances[c])
+            
+            # Posterior = log prior + log likelihood
             posteriors[c] = log_prior + log_likelihood
             
-        # Return the class with the highest log posterior probability
-        return max(posteriors, key=posteriors.get)
+        # Kembalikan kelas dengan probabilitas log-posterior terbesar
+        return int(max(posteriors, key=posteriors.get))
 
     def predict(self, X):
         """
-        Predicts class labels for a matrix of feature vectors.
+        Memprediksi kelas untuk seluruh matriks data uji.
         
-        Args:
-            X (list of lists): Feature matrix.
+        Parameter:
+            X (np.ndarray): Matriks fitur data uji berdimensi (n_samples, n_features).
             
-        Returns:
-            list: List of predicted labels.
+        Return:
+            list: Daftar label kelas hasil prediksi.
         """
         return [self.predict_one(row) for row in X]

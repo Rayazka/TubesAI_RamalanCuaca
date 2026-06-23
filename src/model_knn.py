@@ -1,15 +1,16 @@
-import math
+import numpy as np
 
 class KNNClassifier:
     """
-    K-Nearest Neighbors Classifier implemented from scratch.
+    Model K-Nearest Neighbors Classifier yang diimplementasikan
+    dengan optimasi komputasi matriks menggunakan NumPy (Broadcasting).
     """
     def __init__(self, k=5):
         """
-        Initializes the classifier with the number of neighbors.
+        Inisialisasi model KNN dengan menentukan jumlah tetangga terdekat (K).
         
-        Args:
-            k (int): Number of neighbors to use for voting.
+        Parameter:
+            k (int): Jumlah tetangga terdekat yang digunakan untuk proses voting.
         """
         self.k = k
         self.X_train = None
@@ -17,92 +18,77 @@ class KNNClassifier:
 
     def fit(self, X, y):
         """
-        Fits the model by storing the training features and labels.
+        Menyimpan data training berupa array NumPy ke dalam memori.
         
-        Args:
-            X (list of lists): Training features.
-            y (list): Training labels.
+        Parameter:
+            X (np.ndarray): Fitur data training berdimensi (n_samples, n_features).
+            y (np.ndarray): Target label data training berdimensi (n_samples,).
         """
         self.X_train = X
         self.y_train = y
 
-    def _euclidean_distance_sq(self, x1, x2):
-        """
-        Computes the squared Euclidean distance between two vectors.
-        We omit the square root operation because square root is a monotonic 
-        transformation, meaning:
-           if dist_sq(a, b) < dist_sq(a, c) then dist(a, b) < dist(a, c)
-        Skipping square root saves significant CPU time in pure Python.
-        
-        Args:
-            x1 (list): First vector.
-            x2 (list): Second vector.
-            
-        Returns:
-            float: Squared Euclidean distance.
-        """
-        dist_sq = 0.0
-        # Accessing by index in a simple loop is faster in pure Python 
-        # than using list comprehensions or zip()
-        for i in range(len(x1)):
-            diff = x1[i] - x2[i]
-            dist_sq += diff * diff
-        return dist_sq
-
     def predict_one(self, x):
         """
-        Predicts the label for a single feature vector.
+        Memprediksi kelas untuk satu vektor sampel uji menggunakan operasi vektor NumPy.
         
-        Args:
-            x (list): Feature vector.
+        Langkah-langkah:
+        1. Hitung kuadrat jarak Euclidean dari x ke seluruh baris X_train secara paralel.
+        2. Cari K indeks tetangga terdekat dengan partisi dan sorting NumPy.
+        3. Lakukan voting mayoritas kelas tetangga terdekat.
+        
+        Parameter:
+            x (np.ndarray): Vektor fitur data uji tunggal (n_features,).
             
-        Returns:
-            int: Predicted class (0 or 1).
+        Return:
+            int: Label kelas hasil prediksi (0 atau 1).
         """
-        # Calculate squared distance from x to all training points
-        distances = []
-        for i in range(len(self.X_train)):
-            d = self._euclidean_distance_sq(x, self.X_train[i])
-            distances.append((d, self.y_train[i]))
-            
-        # Sort distances in ascending order
-        # Python's built-in Timsort is highly optimized
-        distances.sort(key=lambda item: item[0])
+        # 1. Menghitung kuadrat jarak Euclidean secara paralel menggunakan Broadcasting
+        # (self.X_train - x) mengurangi x dari setiap baris di X_train secara otomatis
+        # .sum(axis=1) menjumlahkan selisih kuadrat sepanjang kolom fitur (horizontal)
+        dists_sq = np.sum((self.X_train - x) ** 2, axis=1)
         
-        # Select the K nearest neighbors
-        k_neighbors = distances[:self.k]
+        # 2. Mengambil K indeks data dengan jarak kuadrat terkecil
+        # np.argpartition mempartisi K data terkecil secara efisien dalam kompleksitas O(N)
+        k_indices = np.argpartition(dists_sq, self.k)[:self.k]
         
-        # Count votes for each label
-        votes = {}
-        for _, label in k_neighbors:
-            votes[label] = votes.get(label, 0) + 1
-            
-        # Find the label with maximum votes
-        max_vote = max(votes.values())
-        candidates = [label for label, count in votes.items() if count == max_vote]
+        # Urutkan K data terpilih tersebut berdasarkan jarak sebenarnya dari yang terdekat
+        k_indices = k_indices[np.argsort(dists_sq[k_indices])]
         
-        # If there's no tie, return the winner
+        # Dapatkan label kelas dari K tetangga terdekat
+        k_labels = self.y_train[k_indices]
+        
+        # 3. Hitung jumlah voting kelas menggunakan operasi NumPy
+        unique_labels, counts = np.unique(k_labels, return_counts=True)
+        max_count = np.max(counts)
+        
+        # Cari label kelas yang mendapatkan jumlah suara terbanyak (bisa lebih dari satu/seri)
+        candidates = unique_labels[counts == max_count]
+        
+        # Jika hanya ada satu pemenang mutlak
         if len(candidates) == 1:
-            return candidates[0]
+            return int(candidates[0])
             
-        # Tie-breaker: Return the label of the closest neighbor among the tied candidates
-        for _, label in k_neighbors:
+        # Pemecah Seri (Tie-Breaker):
+        # Pilih kelas dari kandidat terdekat pertama yang kita temui di k_labels
+        # (karena k_labels sudah terurut dari jarak paling dekat ke jauh)
+        for label in k_labels:
             if label in candidates:
-                return label
+                return int(label)
                 
-        return candidates[0] # Fallback
+        return int(candidates[0])
 
     def predict(self, X):
         """
-        Predicts labels for a matrix of feature vectors.
+        Memprediksi kelas untuk seluruh baris matriks uji secara efisien.
         
-        Args:
-            X (list of lists): Feature matrix.
+        Parameter:
+            X (np.ndarray): Matriks fitur data uji berdimensi (n_test_samples, n_features).
             
-        Returns:
-            list: List of predicted labels (0 or 1).
+        Return:
+            list: Daftar label kelas hasil prediksi.
         """
         predictions = []
+        # Iterasi baris demi baris pada array NumPy
         for row in X:
             pred = self.predict_one(row)
             predictions.append(pred)

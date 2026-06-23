@@ -1,142 +1,132 @@
 import csv
 import random
+import numpy as np
 
 def load_data(file_path, target_threshold=3.0):
     """
-    Reads the weather CSV file, separates features and target, and removes leakage columns.
+    Membaca dataset cuaca dari berkas CSV, memisahkan fitur dan target,
+    serta membuang kolom kebocoran data. Hasil akhir dikonversi ke array NumPy.
     
-    Args:
-        file_path (str): Path to the CSV dataset.
-        target_threshold (float): Threshold in mm to define rainy (1) vs dry (0).
+    Parameter:
+        file_path (str): Jalur berkas CSV dataset.
+        target_threshold (float): Batas curah hujan (mm) untuk pelabelan biner Hujan (1).
         
-    Returns:
-        X (list of lists): Feature matrix.
-        y (list): Target labels (0 or 1).
-        feature_names (list): Names of the features used.
+    Return:
+        X (np.ndarray): Matriks fitur prediktor berdimensi (n_samples, n_features).
+        y (np.ndarray): Vektor label target biner (n_samples,).
+        feature_names (list): Daftar nama kolom fitur prediktor.
     """
     X = []
     y = []
     
+    # Membaca berkas CSV menggunakan standard library csv
     with open(file_path, mode='r', encoding='utf-8') as f:
         reader = csv.reader(f)
         header = next(reader)
         
-        # Clean column names (remove weird characters/spaces)
+        # Bersihkan whitespace di sekitar nama kolom
         header = [col.strip() for col in header]
         
-        # Find column indexes
+        # Dapatkan indeks kolom target curah hujan
         try:
             target_idx = header.index("precipitation_sum (mm)")
         except ValueError:
-            raise ValueError("Target column 'precipitation_sum (mm)' not found in dataset header.")
+            raise ValueError("Kolom target 'precipitation_sum (mm)' tidak ditemukan.")
             
-        # Define leakage/unused columns to drop
-        # 'time' is date (string)
-        # 'precipitation_sum (mm)' is target
-        # 'precipitation_hours (h)' is direct leakage
+        # Kolom kebocoran data (leakage) yang harus dieliminasi
         leakage_cols = ["time", "precipitation_sum (mm)", "precipitation_hours (h)"]
         drop_indices = set()
         for col_name in leakage_cols:
             if col_name in header:
                 drop_indices.add(header.index(col_name))
                 
-        # Define the remaining feature indices and names
+        # Dapatkan indeks dan nama fitur yang digunakan sebagai prediktor
         feature_indices = [i for i in range(len(header)) if i not in drop_indices]
         feature_names = [header[i] for i in feature_indices]
         
-        # Process rows
+        # Iterasi membaca baris data
         for row in reader:
             if not row:
                 continue
             try:
-                # Target value
+                # Label biner curah hujan
                 precip = float(row[target_idx])
                 label = 1 if precip > target_threshold else 0
                 
-                # Feature values
+                # Fitur numerik
                 features = [float(row[i]) for i in feature_indices]
                 
                 X.append(features)
                 y.append(label)
-            except ValueError as e:
-                # Skip header repetitions or invalid rows (if any)
+            except ValueError:
                 continue
                 
-    return X, y, feature_names
+    # Mengonversi list Python menjadi array NumPy agar komputasi lebih cepat
+    return np.array(X), np.array(y), feature_names
 
 def fit_min_max(X_train):
     """
-    Calculates the min and max for each feature in the training set.
+    Menghitung batas minimum dan maksimum untuk setiap fitur pada data training menggunakan NumPy.
     
-    Args:
-        X_train (list of lists): Training feature matrix.
+    Parameter:
+        X_train (np.ndarray): Array dua dimensi data training.
         
-    Returns:
-        scale_params (list of tuples): List of (min, max) for each feature.
+    Return:
+        min_val (np.ndarray): Nilai minimum tiap fitur (kolom).
+        max_val (np.ndarray): Nilai maksimum tiap fitur (kolom).
     """
-    num_features = len(X_train[0])
-    scale_params = []
-    
-    for j in range(num_features):
-        col_vals = [row[j] for row in X_train]
-        min_val = min(col_vals)
-        max_val = max(col_vals)
-        scale_params.append((min_val, max_val))
-        
-    return scale_params
+    # np.min(..., axis=0) mencari nilai minimal untuk setiap kolom
+    min_val = np.min(X_train, axis=0)
+    max_val = np.max(X_train, axis=0)
+    return min_val, max_val
 
 def transform_min_max(X, scale_params):
     """
-    Scales features to the range [0, 1] using min and max from fit_min_max.
+    Menormalisasikan matriks fitur menggunakan NumPy secara vektorisasi tanpa loop.
+    Rumus: (X - min) / (max - min)
     
-    Args:
-        X (list of lists): Feature matrix.
-        scale_params (list of tuples): (min, max) parameters for each feature.
+    Parameter:
+        X (np.ndarray): Array dua dimensi yang akan dinormalisasi.
+        scale_params (tuple): Pasangan (min_val, max_val) hasil dari fit_min_max.
         
-    Returns:
-        X_scaled (list of lists): Scaled feature matrix.
+    Return:
+        X_scaled (np.ndarray): Array hasil normalisasi berskala [0, 1].
     """
-    X_scaled = []
-    for row in X:
-        scaled_row = []
-        for j, val in enumerate(row):
-            min_val, max_val = scale_params[j]
-            # Handle division by zero if all values are identical
-            if max_val == min_val:
-                scaled_val = 0.0
-            else:
-                scaled_val = (val - min_val) / (max_val - min_val)
-            scaled_row.append(scaled_val)
-        X_scaled.append(scaled_row)
-    return X_scaled
+    min_val, max_val = scale_params
+    
+    # Hitung selisih rentang nilai (max - min)
+    range_val = max_val - min_val
+    
+    # Cegah pembagian dengan nol dengan mengganti range bernilai 0 menjadi 1.0
+    range_val = np.where(range_val == 0.0, 1.0, range_val)
+    
+    # Lakukan kalkulasi secara paralel untuk semua elemen matriks (Broadcasting)
+    return (X - min_val) / range_val
 
 def train_test_split(X, y, test_size=0.2, seed=42):
     """
-    Splits features and targets into random train and test subsets.
+    Membagi dataset menjadi set training dan testing secara acak berbasis NumPy.
     
-    Args:
-        X (list of lists): Feature matrix.
-        y (list): Target labels.
-        test_size (float): Proportion of the dataset to include in the test split.
-        seed (int): Random seed for reproducibility.
+    Parameter:
+        X (np.ndarray): Array fitur lengkap.
+        y (np.ndarray): Array label target lengkap.
+        test_size (float): Proporsi ukuran data uji (uji / total).
+        seed (int): Seed generator acak agar hasil pengacakan konsisten.
         
-    Returns:
-        X_train, X_test, y_train, y_test
+    Return:
+        X_train, X_test, y_train, y_test (semuanya bertipe np.ndarray)
     """
     n = len(X)
-    indices = list(range(n))
+    indices = np.arange(n)
     
-    # Use standard library Random class with a seed for deterministic shuffling
-    rng = random.Random(seed)
+    # Inisialisasi generator acak modern NumPy dengan seed tetap
+    rng = np.random.default_rng(seed)
     rng.shuffle(indices)
     
+    # Tentukan indeks pembatas pembagian
     split_idx = int(n * (1 - test_size))
     train_indices = indices[:split_idx]
     test_indices = indices[split_idx:]
     
-    X_train = [X[i] for i in train_indices]
-    X_test = [X[i] for i in test_indices]
-    y_train = [y[i] for i in train_indices]
-    y_test = [y[i] for i in test_indices]
-    
-    return X_train, X_test, y_train, y_test
+    # Saring data latih dan uji menggunakan boolean/fancy indexing NumPy
+    return X[train_indices], X[test_indices], y[train_indices], y[test_indices]

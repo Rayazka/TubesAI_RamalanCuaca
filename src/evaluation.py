@@ -1,19 +1,24 @@
 def calculate_confusion_matrix(y_true, y_pred):
     """
-    Calculates True Positives, True Negatives, False Positives, and False Negatives.
+    Menghitung komponen matriks kebingungan (Confusion Matrix):
+    - True Positive (TP): Aktual Hujan, Prediksi Hujan
+    - True Negative (TN): Aktual Tidak Hujan, Prediksi Tidak Hujan
+    - False Positive (FP): Aktual Tidak Hujan, Prediksi Hujan
+    - False Negative (FN): Aktual Hujan, Prediksi Tidak Hujan
     
-    Args:
-        y_true (list): Actual target labels.
-        y_pred (list): Predicted labels.
+    Parameter:
+        y_true (list): Nilai target aktual/sebenarnya.
+        y_pred (list): Nilai hasil prediksi model.
         
-    Returns:
-        tuple: (tp, tn, fp, fn) counts.
+    Return:
+        tuple: (tp, tn, fp, fn) yang berisi frekuensi hitung masing-masing kondisi.
     """
     tp = 0
     tn = 0
     fp = 0
     fn = 0
     
+    # Mencocokkan nilai aktual dan prediksi pada baris yang sama
     for true, pred in zip(y_true, y_pred):
         if true == 1 and pred == 1:
             tp += 1
@@ -28,14 +33,18 @@ def calculate_confusion_matrix(y_true, y_pred):
 
 def calculate_metrics(y_true, y_pred):
     """
-    Computes Accuracy, Precision, Recall, and F1-Score from scratch.
+    Menghitung metrik performa klasifikasi dari awal hingga akhir, termasuk:
+    - Accuracy: Seberapa banyak prediksi yang tepat dari total seluruh data.
+    - Precision: Dari semua prediksi kelas Hujan, berapa yang benar-benar Hujan.
+    - Recall (Sensitivity): Dari seluruh hari yang aktualnya Hujan, berapa banyak yang berhasil dideteksi.
+    - F1-Score: Rata-rata harmonik antara Precision dan Recall (baik untuk evaluasi jika data sedikit tidak seimbang).
     
-    Args:
-        y_true (list): Actual target labels.
-        y_pred (list): Predicted labels.
+    Parameter:
+        y_true (list): Target aktual.
+        y_pred (list): Hasil prediksi.
         
-    Returns:
-        dict: Dictionary containing the metrics.
+    Return:
+        dict: Kamus berisi nilai metrik evaluasi numerik.
     """
     total = len(y_true)
     if total == 0:
@@ -47,13 +56,19 @@ def calculate_metrics(y_true, y_pred):
             "confusion_matrix": (0, 0, 0, 0)
         }
         
+    # Ambil nilai matriks kebingungan
     tp, tn, fp, fn = calculate_confusion_matrix(y_true, y_pred)
     
+    # 1. Akurasi = (TP + TN) / Total
     accuracy = (tp + tn) / total
     
+    # 2. Presisi = TP / (TP + FP) (Gunakan pengaman jika penyebutnya 0)
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    
+    # 3. Recall = TP / (TP + FN) (Gunakan pengaman jika penyebutnya 0)
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     
+    # 4. F1-Score = 2 * (Precision * Recall) / (Precision + Recall)
     f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
     
     return {
@@ -66,11 +81,12 @@ def calculate_metrics(y_true, y_pred):
 
 def print_metrics(metrics, title="Evaluation Results"):
     """
-    Nicely formats and prints evaluation metrics and the confusion matrix.
+    Mencetak laporan hasil metrik evaluasi dan tampilan visual Confusion Matrix
+    ke layar terminal dengan format yang rapi dan mudah dibaca.
     
-    Args:
-        metrics (dict): Computed metrics from calculate_metrics.
-        title (str): Header title.
+    Parameter:
+        metrics (dict): Hasil kamus metrik dari calculate_metrics.
+        title (str): Judul judul laporan (misal nama model yang diuji).
     """
     tp, tn, fp, fn = metrics["confusion_matrix"]
     
