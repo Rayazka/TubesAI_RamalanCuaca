@@ -101,3 +101,48 @@ class GaussianNaiveBayes:
             list: Daftar label kelas hasil prediksi.
         """
         return [self.predict_one(row) for row in X]
+
+    def predict_proba_one(self, x):
+        """
+        Menghitung probabilitas kelas untuk satu vektor sampel uji.
+        Menggunakan Log-Sum-Exp Trick untuk mencegah underflow numerik.
+        
+        Parameter:
+            x (np.ndarray): Vektor fitur data uji tunggal.
+            
+        Return:
+            dict: Probabilitas masing-masing kelas {0: prob_0, 1: prob_1}.
+        """
+        if not self.is_fitted:
+            raise ValueError("Model belum dilatih!")
+            
+        posteriors = {}
+        for c in self.classes:
+            # log( P(c) )
+            log_prior = np.log(self.priors[c])
+            
+            # Menghitung sum( log( P(x_i | c) ) ) secara vektor
+            log_likelihood = self._calculate_log_likelihood(x, self.means[c], self.variances[c])
+            
+            # Posterior = log prior + log likelihood
+            posteriors[c] = log_prior + log_likelihood
+            
+        # Log-Sum-Exp Trick untuk stabilitas numerik
+        max_log = max(posteriors.values())
+        unnormalized = {c: np.exp(val - max_log) for c, val in posteriors.items()}
+        total = sum(unnormalized.values())
+        
+        return {c: unnormalized[c] / total for c in self.classes}
+
+    def predict_proba(self, X):
+        """
+        Menghitung probabilitas kelas untuk seluruh matriks data uji.
+        
+        Parameter:
+            X (np.ndarray): Matriks fitur data uji.
+            
+        Return:
+            list: Daftar kamus probabilitas kelas untuk setiap sampel.
+        """
+        return [self.predict_proba_one(row) for row in X]
+

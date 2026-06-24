@@ -12,6 +12,59 @@ from src.visualization import (
     plot_knn_tuning
 )
 
+def predict_and_display_days(X_test, X_test_scaled, y_test, knn, gnb, feature_names, num_days=7):
+    """
+    Memprediksi sejumlah hari pertama dari data uji dan menampilkan hasil prediksi
+    beserta persentase keyakinan (probabilitas) untuk masing-masing model ke konsol.
+    """
+    print("\n==================================================")
+    print(f"    HASIL PREDIKSI UNTUK {num_days} HARI PERTAMA (DATA UJI) ")
+    print("==================================================")
+    
+    # Ambil sampel sebanyak num_days
+    samples_raw = X_test[:num_days]
+    samples_scaled = X_test_scaled[:num_days]
+    actual_labels = y_test[:num_days]
+    
+    # Prediksi kelas dan hitung probabilitas
+    knn_preds = knn.predict(samples_scaled)
+    knn_probas = knn.predict_proba(samples_scaled)
+    
+    gnb_preds = gnb.predict(samples_raw)
+    gnb_probas = gnb.predict_proba(samples_raw)
+    
+    for i in range(num_days):
+        print(f"\nHari ke-{i+1}:")
+        
+        # Tampilkan beberapa fitur cuaca penting sebagai info pendukung
+        # 'temperature_2m_mean (°C)' -> index 5
+        # 'relative_humidity_2m_mean (%)' -> index 6
+        # 'cloud_cover_mean (%)' -> index 7
+        # 'wind_speed_10m_mean (km/h)' -> index 16
+        temp = samples_raw[i][5]
+        humid = samples_raw[i][6]
+        cloud = samples_raw[i][7]
+        wind = samples_raw[i][16]
+        print(f"      [Info Cuaca] Rata-rata Suhu: {temp:.1f}°C | Kelembapan: {humid:.1f}% | Awan: {cloud:.1f}% | Kec. Angin: {wind:.1f} km/h")
+        
+        # Label Aktual
+        actual_str = "HUJAN" if actual_labels[i] == 1 else "TIDAK HUJAN"
+        print(f"      [Aktual]     : {actual_str}")
+        
+        # Hasil KNN
+        knn_pred = knn_preds[i]
+        knn_pred_str = "HUJAN" if knn_pred == 1 else "TIDAK HUJAN"
+        knn_conf = knn_probas[i][knn_pred] * 100
+        print(f"      [Model KNN]  : {knn_pred_str} (Persentase Keyakinan: {knn_conf:.1f}%)")
+        
+        # Hasil Naive Bayes
+        gnb_pred = gnb_preds[i]
+        gnb_pred_str = "HUJAN" if gnb_pred == 1 else "TIDAK HUJAN"
+        gnb_conf = gnb_probas[i][gnb_pred] * 100
+        print(f"      [Model GNB]  : {gnb_pred_str} (Persentase Keyakinan: {gnb_conf:.1f}%)")
+        
+    print("\n==================================================")
+
 def main():
     print("==================================================")
     print("   MEMULAI PIPELINE PREDIKSI CUACA KELAPA GADING ")
@@ -148,9 +201,11 @@ def main():
     except Exception as e:
         print(f"      -> ERROR gagal menggambar visualisasi: {e}")
     
-    print("\n==================================================")
-    print("      EKSKUSI PIPELINE SELESAI DENGAN SUKSES      ")
-    print("==================================================")
+    # 7. Memprediksi sejumlah hari pertama dari data uji (Default: 7 hari)
+    # Buat instansiasi KNN terbaik dan latih kembali untuk pengujian sampel
+    best_knn = KNNClassifier(k=best_k)
+    best_knn.fit(X_train_scaled, y_train)
+    predict_and_display_days(X_test, X_test_scaled, y_test, best_knn, gnb, feature_names, num_days=7)
 
 if __name__ == "__main__":
     main()

@@ -93,3 +93,42 @@ class KNNClassifier:
             pred = self.predict_one(row)
             predictions.append(pred)
         return predictions
+
+    def predict_proba_one(self, x):
+        """
+        Menghitung probabilitas kelas untuk satu vektor sampel uji.
+        
+        Parameter:
+            x (np.ndarray): Vektor fitur data uji tunggal.
+            
+        Return:
+            dict: Probabilitas masing-masing kelas {0: prob_0, 1: prob_1}.
+        """
+        # Menghitung kuadrat jarak Euclidean secara paralel
+        dists_sq = np.sum((self.X_train - x) ** 2, axis=1)
+        
+        # Mengambil K indeks data dengan jarak kuadrat terkecil
+        k_indices = np.argpartition(dists_sq, self.k)[:self.k]
+        
+        # Dapatkan label kelas dari K tetangga terdekat
+        k_labels = self.y_train[k_indices]
+        
+        # Hitung probabilitas kelas
+        count_1 = np.sum(k_labels == 1)
+        prob_1 = count_1 / self.k
+        prob_0 = 1.0 - prob_1
+        
+        return {0: prob_0, 1: prob_1}
+
+    def predict_proba(self, X):
+        """
+        Menghitung probabilitas kelas untuk seluruh matriks data uji.
+        
+        Parameter:
+            X (np.ndarray): Matriks fitur data uji.
+            
+        Return:
+            list: Daftar kamus probabilitas kelas untuk setiap sampel.
+        """
+        return [self.predict_proba_one(row) for row in X]
+
