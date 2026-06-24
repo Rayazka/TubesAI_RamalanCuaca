@@ -22,94 +22,138 @@
 
 ---
 
-## 1. DESKRIPSI KASUS & DATASET
+## 1. DESKRIPSI KASUS, DATASET, & IMPLEMENTASI PREPROCESSING
 
-### A. Kasus yang Dipilih
-Kasus yang diselesaikan dalam proyek ini adalah **klasifikasi cuaca harian biner (Hujan vs Tidak Hujan)** di wilayah **Kelapa Gading, Jakarta Utara** berdasarkan parameter cuaca harian. Prediksi cuaca harian yang akurat sangat krusial untuk mendukung berbagai aktivitas masyarakat, mulai dari transportasi, logistik, hingga mitigasi bencana banjir lokal. 
-
-Dalam perspektif pembelajaran mesin, kasus ini dimodelkan sebagai **Supervised Learning - Binary Classification**, di mana model menerima parameter-parameter kondisi atmosfer harian dan memprediksi apakah curah hujan pada hari tersebut melampaui ambang batas tertentu atau tidak.
-
-### B. Analisis Dataset
-Dataset yang digunakan disimpan pada berkas `data/cuaca-harian-dki2-kelapagading.csv` dengan total **5.722 baris data**. 
-
-Target klasifikasi biner disimbolkan sebagai variabel $y \in \{0, 1\}$ (diberi nama `is_rain` di memori) yang diturunkan dari kolom asli `precipitation_sum (mm)` dengan aturan ambang batas (*threshold*):
+### A. Deskripsi Kasus & Variabel Target
+Kasus yang diselesaikan dalam proyek ini adalah **klasifikasi cuaca harian biner (Hujan vs Tidak Hujan)** di wilayah **Kelapa Gading, Jakarta Utara** menggunakan dua model klasifikasi (*from scratch*): K-Nearest Neighbors (KNN) dan Gaussian Naive Bayes.
+Untuk memodelkan kasus ini, kita mengonversi data curah hujan kontinu (`precipitation_sum (mm)`) menjadi target biner $y \in \{0, 1\}$ (diberi nama `is_rain` di memori) dengan batas threshold:
 $$y = \begin{cases} 
 1, & \text{jika } \text{precipitation\_sum} > 3.0 \text{ mm (Hari Hujan)} \\ 
 0, & \text{jika } \text{precipitation\_sum} \le 3.0 \text{ mm (Hari Tidak Hujan)} 
 \end{cases}$$
 
-Setelah proses pembersihan dan eliminasi kolom yang tidak relevan, didapatkan **21 fitur prediktor numerik** sebagai berikut:
+### B. Analisis Dataset & Eliminasi Kolom Bocor (Data Leakage)
+Dataset asli dari berkas `data/cuaca-harian-dki2-kelapagading.csv` berisi **5.722 baris data** dengan total 24 kolom.
+Guna mencegah bias klasifikasi (*data leakage*), tiga kolom berikut dibuang secara ketat dari fitur prediktor:
+1. **`time`**: Merupakan metadata penunjuk waktu (tanggal) yang tidak mempengaruhi model fisik atmosfer secara langsung.
+2. **`precipitation_sum (mm)`**: Sumber langsung dari variabel target biner. Jika tidak dibuang, model akan memprediksi secara perkalian langsung dengan tingkat keberhasilan palsu 100%.
+3. **`precipitation_hours (h)`**: Jumlah jam terjadinya hujan. Data ini hanya diketahui *setelah* hari tersebut selesai dilewati, sehingga tidak valid digunakan untuk meramal di awal hari.
 
-| No | Nama Kolom Fitur | Satuan | Deskripsi |
-|----|------------------|--------|-----------|
-| 1  | `temperature_2m_max` | °C | Suhu Udara Maksimum pada ketinggian 2 meter |
-| 2  | `temperature_2m_min` | °C | Suhu Udara Minimum pada ketinggian 2 meter |
-| 3  | `wind_speed_10m_max` | km/h | Kecepatan Angin Maksimum pada ketinggian 10 meter |
-| 4  | `wind_direction_10m_dominant` | ° | Arah Angin Dominan pada ketinggian 10 meter |
-| 5  | `shortwave_radiation_sum` | MJ/m² | Total Radiasi Gelombang Pendek Matahari |
-| 6  | `temperature_2m_mean` | °C | Rata-rata Suhu Udara Harian |
-| 7  | `relative_humidity_2m_mean` | % | Rata-rata Kelembapan Relatif Harian |
-| 8  | `cloud_cover_mean` | % | Rata-rata Persentase Tutupan Awan |
-| 9  | `surface_pressure_mean` | hPa | Rata-rata Tekanan Udara Permukaan |
-| 10 | `wind_gusts_10m_max` | km/h | Hembusan Angin Maksimum Harian |
-| 11 | `winddirection_10m_dominant` | ° | Arah Hembusan Angin Dominan |
-| 12 | `relative_humidity_2m_max` | % | Kelembapan Relatif Maksimum |
-| 13 | `relative_humidity_2m_min` | % | Kelembapan Relatif Minimum |
-| 14 | `cloud_cover_max` | % | Persentase Tutupan Awan Maksimum |
-| 15 | `cloud_cover_min` | % | Persentase Tutupan Awan Minimum |
-| 16 | `wind_gusts_10m_mean` | km/h | Rata-rata Hembusan Angin Harian |
-| 17 | `wind_speed_10m_mean` | km/h | Rata-rata Kecepatan Angin Harian |
-| 18 | `wind_gusts_10m_min` | km/h | Hembusan Angin Minimum Harian |
-| 19 | `wind_speed_10m_min` | km/h | Kecepatan Angin Minimum Harian |
-| 20 | `surface_pressure_max` | hPa | Tekanan Udara Permukaan Maksimum |
-| 21 | `surface_pressure_min` | hPa | Tekanan Udara Permukaan Minimum |
-
-### C. Penanganan Kebocoran Data (Data Leakage)
-*Data Leakage* terjadi ketika fitur-fitur yang mengandung informasi masa depan atau informasi target secara tidak sengaja disertakan dalam proses training model. Hal ini membuat model tampak berkinerja sangat baik saat pengujian, namun gagal total saat diterapkan di dunia nyata. Untuk mencegah hal tersebut, tiga kolom berikut dieliminasi secara ketat dari fitur prediktor:
-1. **`time`**: Merupakan metadata waktu/tanggal yang tidak merepresentasikan kondisi atmosfer fisis secara langsung untuk prediksi cuaca instan.
-2. **`precipitation_sum (mm)`**: Kolom ini merupakan sumber langsung pembentukan label target biner `is_rain`. Menyertakan fitur ini akan membuat model melakukan prediksi secara trivial (hanya membaca kolom ini) dan menghasilkan akurasi palsu 100%.
-3. **`precipitation_hours (h)`**: Jumlah jam hujan secara langsung berkolerasi dengan curah hujan harian. Fitur ini hanya diketahui *setelah* hari tersebut selesai dilewati, sehingga tidak valid digunakan sebagai prediktor sebelum kejadian.
+Setelah mengeliminasi kolom-kolom bocor ini, kita memperoleh **21 fitur prediktor numerik** (suhu udara maks/min/rata-rata, kelembapan, tutupan awan, tekanan udara, kecepatan angin, radiasi matahari, dsb.).
 
 ---
 
-## 2. ANALISIS PROSES PREPROCESSING
+### C. Implementasi Langkah Preprocessing Data & Hasil Proses
 
-Proses preprocessing data dilakukan secara terstruktur dalam modul `src/preprocessing.py` dengan memanfaatkan optimasi array NumPy.
+Proses preprocessing data diimplementasikan sepenuhnya pada berkas `src/preprocessing.py` menggunakan array NumPy untuk optimasi kecepatan eksekusi. Berikut adalah langkah-langkah detailnya:
 
-### A. Pemuatan Data (Data Loading)
-Fungsi `load_data` membaca data dari file CSV menggunakan pustaka standar Python `csv` baris demi baris guna meminimalisasi overhead memori. Baris kosong dilewati secara aman. Setelah menyaring kolom-kolom *data leakage*, fitur prediktor dan label target dikonversi menjadi tipe array NumPy `np.ndarray`. Penggunaan tipe data NumPy ini sangat vital karena memungkinkan komputasi berikutnya (normalisasi, perhitungan jarak, dsb.) memanfaatkan instruksi vektorisasi tingkat rendah yang jauh lebih cepat daripada menggunakan struktur data list bawaan Python.
+#### Langkah 1: Pemuatan Data & Penyaringan Kolom (Data Loading)
+Fungsi `load_data` membaca data dari file CSV baris demi baris menggunakan standard library `csv`, mengekstrak target curah hujan, menerapkan binarisasi, memfilter kolom bocor, dan mengonversi list data menjadi array NumPy `np.ndarray`.
 
-### B. Pembagian Data (Train-Test Split)
-Untuk menguji kemampuan generalisasi model pada data yang belum pernah dilihat sebelumnya, dataset dibagi menjadi **80% data latih (train)** dan **20% data uji (test)** melalui fungsi `train_test_split`.
-* Jumlah Data Latih (*Train*): **4.577 sampel**
-* Jumlah Data Uji (*Test*): **1.145 sampel**
-
-Pembagian ini memanfaatkan fungsi generator acak NumPy (`np.random.default_rng`) dengan parameter seed tetap (`seed = 42`). Hal ini memastikan pembagian baris data dilakukan secara acak namun konsisten (reproducible) setiap kali program dijalankan.
-
-Distribusi kelas setelah pembagian data adalah sebagai berikut:
-* **Data Latih**: Hujan = 2.399 (52,4%), Tidak Hujan = 2.178 (47,6%)
-* **Data Uji**: Hujan = 632 (55,2%), Tidak Hujan = 513 (44,8%)
-Data terlihat cukup seimbang (*well-balanced*), sehingga metrik akurasi dapat digunakan dengan aman bersama dengan metrik evaluasi lainnya seperti F1-Score.
-
-### C. Normalisasi Fitur (Min-Max Scaling)
-Skala nilai antar fitur pada dataset asli sangat timpang (misal, fitur tekanan udara berkisar di angka 1000-an hPa, sedangkan suhu berada di angka 20-30an °C). Algoritma seperti KNN yang bertumpu pada jarak spasial akan sangat terdistorsi oleh fitur berskala besar. Oleh karena itu, diterapkan **Min-Max Scaling** untuk menyetarakan rentang seluruh fitur ke dalam interval $[0, 1]$ menggunakan rumus:
-$$X_{\text{scaled}} = \frac{X - X_{\text{min}}}{X_{\text{max}} - X_{\text{min}}}$$
-
-Untuk menghindari **kebocoran data uji (data leakage)**, parameter normalisasi ($X_{\text{min}}$ dan $X_{\text{max}}$) dihitung secara eksklusif hanya dari data latih (`fit_min_max`):
+* **Kode Implementasi (`src/preprocessing.py`):**
 ```python
-min_val = np.min(X_train, axis=0)
-max_val = np.max(X_train, axis=0)
+def load_data(file_path, target_threshold=3.0):
+    X = []
+    y = []
+    
+    with open(file_path, mode='r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        header = [col.strip() for col in header]
+        
+        try:
+            target_idx = header.index("precipitation_sum (mm)")
+        except ValueError:
+            raise ValueError("Kolom target 'precipitation_sum (mm)' tidak ditemukan.")
+            
+        leakage_cols = ["time", "precipitation_sum (mm)", "precipitation_hours (h)"]
+        drop_indices = set()
+        for col_name in leakage_cols:
+            if col_name in header:
+                drop_indices.add(header.index(col_name))
+                
+        feature_indices = [i for i in range(len(header)) if i not in drop_indices]
+        feature_names = [header[i] for i in feature_indices]
+        
+        for row in reader:
+            if not row:
+                continue
+            try:
+                precip = float(row[target_idx])
+                label = 1 if precip > target_threshold else 0
+                features = [float(row[i]) for i in feature_indices]
+                X.append(features)
+                y.append(label)
+            except ValueError:
+                continue
+                
+    return np.array(X), np.array(y), feature_names
 ```
-Setelah parameter didapatkan, transformasi matematika dilakukan secara vektorisasi terarah (*broadcasting*) pada data latih dan data uji menggunakan fungsi `transform_min_max`:
+
+* **Hasil Proses pada Dataset Kita:**
+  * Jumlah Sampel yang berhasil dimuat: **5.722 baris data**.
+  * Jumlah Fitur Prediktor yang digunakan: **21 kolom**.
+  * Kolom Fitur Terpilih: `temperature_2m_max (°C)`, `temperature_2m_min (°C)`, `wind_speed_10m_max (km/h)`, `wind_direction_10m_dominant (°)`, ..., dan 17 fitur atmosfer numerik lainnya.
+
+#### Langkah 2: Pembagian Data Uji dan Data Latih (Train-Test Split)
+Dataset dibagi menjadi **80% data latih (train)** untuk pelatihan model dan **20% data uji (test)** untuk pengujian performa menggunakan indeks acak yang terkontrol (`seed = 42`).
+
+* **Kode Implementasi (`src/preprocessing.py`):**
 ```python
-range_val = np.where(max_val - min_val == 0.0, 1.0, max_val - min_val)
-X_scaled = (X - min_val) / range_val
+def train_test_split(X, y, test_size=0.2, seed=42):
+    n = len(X)
+    indices = np.arange(n)
+    
+    # Inisialisasi generator acak modern dengan seed tetap agar reproducible
+    rng = np.random.default_rng(seed)
+    rng.shuffle(indices)
+    
+    split_idx = int(n * (1 - test_size))
+    train_indices = indices[:split_idx]
+    test_indices = indices[split_idx:]
+    
+    return X[train_indices], X[test_indices], y[train_indices], y[test_indices]
 ```
-Penggunaan `np.where` di atas bertujuan untuk mengantisipasi pembagian dengan nol apabila terdapat fitur konstan di mana $X_{\text{max}} - X_{\text{min}} = 0$.
+
+* **Hasil Proses pada Dataset Kita:**
+  * Ukuran Data Latih (*Train*): **4.577 sampel** ($80\%$).
+  * Ukuran Data Uji (*Test*): **1.145 sampel** ($20\%$).
+  * **Distribusi Kelas Target (`is_rain`):**
+    * **Data Latih**: Hujan = **2.399** ($52,4\%$), Tidak Hujan = **2.178** ($47,6\%$).
+    * **Data Uji**: Hujan = **632** ($55,2\%$), Tidak Hujan = **513** ($44,8\%$).
+    * *Catatan*: Proporsi sebaran kelas cukup berimbang sehingga metrik akurasi dapat digunakan dengan objektif bersama F1-score.
+
+#### Langkah 3: Normalisasi Fitur (Min-Max Scaling)
+Karena fitur prediktor memiliki satuan dan skala nilai yang berbeda (misalnya, tekanan udara dalam ribuan hPa dan suhu dalam puluhan °C), dilakukan normalisasi Min-Max ke dalam rentang $[0, 1]$.
+Guna menghindari kebocoran data uji (*data leakage*), batas min dan max dihitung eksklusif hanya pada data latih (`fit_min_max`), lalu batas tersebut diterapkan untuk mentransformasikan data latih maupun data uji (`transform_min_max`).
+
+* **Kode Implementasi (`src/preprocessing.py`):**
+```python
+def fit_min_max(X_train):
+    # np.min dan np.max mencari nilai ekstrem untuk setiap kolom (axis=0)
+    min_val = np.min(X_train, axis=0)
+    max_val = np.max(X_train, axis=0)
+    return min_val, max_val
+
+def transform_min_max(X, scale_params):
+    min_val, max_val = scale_params
+    range_val = max_val - min_val
+    
+    # Cegah pembagian dengan nol dengan mengganti range 0 menjadi 1.0
+    range_val = np.where(range_val == 0.0, 1.0, range_val)
+    
+    # Lakukan kalkulasi secara paralel menggunakan NumPy broadcasting
+    return (X - min_val) / range_val
+```
+
+* **Hasil Proses pada Dataset Kita:**
+  * Nilai minimum dan maksimum untuk 21 fitur berhasil diekstrak dari 4.577 data training.
+  * Sebagai contoh, fitur `temperature_2m_max` (Suhu Maks) memiliki $X_{min} = 22.1^\circ\text{C}$ dan $X_{max} = 34.6^\circ\text{C}$ pada data latih. Setelah dinormalisasi, hari dengan suhu $34.6^\circ\text{C}$ akan bernilai $1.0$, hari dengan suhu $22.1^\circ\text{C}$ akan bernilai $0.0$, sedangkan hari dengan suhu $28.35^\circ\text{C}$ akan bernilai tepat $0.5$.
+  * Transformasi ini berhasil menyamakan skala seluruh fitur ke rentang $[0, 1]$ tanpa ada kebocoran informasi dari data uji ke data latih.
 
 ---
 
-## 3. DESAIN ALGORITMA (FROM SCRATCH)
+## 2. DESAIN ALGORITMA (FROM SCRATCH)
 
 Sesuai ketentuan tugas, kedua model klasifikasi dibangun sepenuhnya dari awal (*from scratch*) tanpa pustaka tingkat tinggi seperti *scikit-learn*.
 
@@ -173,7 +217,7 @@ Gaussian Naive Bayes didasarkan pada Teorema Bayes dengan asumsi bahwa setiap fi
 
 ---
 
-## 4. MODEL EVALUASI & HASIL EKSPERIMEN
+## 3. MODEL EVALUASI & HASIL EKSPERIMEN
 
 ### A. Metrik Evaluasi
 Metrik performa dihitung secara manual pada modul `src/evaluation.py` menggunakan komponen Confusion Matrix:
@@ -223,7 +267,7 @@ Berikut adalah hasil perbandingan performa komparatif antara model KNN terbaik (
 
 ---
 
-## 5. SCREENSHOT & OUTPUT RUNNING PROGRAM
+## 4. SCREENSHOT & OUTPUT RUNNING PROGRAM
 
 Berikut adalah keluaran (*output*) langsung dari terminal saat menjalankan pipeline utama proyek (`python main.py`):
 
@@ -379,7 +423,7 @@ Berikut adalah visualisasi grafis yang dihasilkan secara otomatis untuk mendukun
 
 ---
 
-## 6. KESIMPULAN & SARAN
+## 5. KESIMPULAN & SARAN
 
 ### A. Kesimpulan
 1. Kedua model klasifikasi yang diimplementasikan dari awal (*from scratch*) tanpa pustaka eksternal machine learning berhasil memprediksi cuaca harian Kelapa Gading dengan kinerja yang sangat memuaskan (akurasi $>81\%$).
