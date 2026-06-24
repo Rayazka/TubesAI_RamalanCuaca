@@ -1,26 +1,20 @@
-# LAPORAN TUGAS BESAR PROJECT BASED LEARNING (PBL)
-## MATA KULIAH KECERDASAN BUATAN (ARTIFICIAL INTELLIGENCE)
-### PROGRAM STUDI S1 REKAYASA PERANGKAT LUNAK
-
----
+# LAPORAN TUGAS BESAR MATA KULIAH KECERDASAN BUATAN (ARTIFICIAL INTELLIGENCE PROGRAM STUDI S1 REKAYASA PERANGKAT LUNAK
 
 ## IDENTITAS KELOMPOK & PERAN ANGGOTA
 
-* **Kelas**: SE48XX (Silakan sesuaikan dengan kelas Anda)
-* **Nomor Kelompok**: XX (Silakan sesuaikan dengan nomor kelompok Anda)
+* **Kelas**: SE-48-03
+* **Nama Kelompok**: Mie Ayam
 * **Anggota Kelompok**:
-  1. **Rayazka Aris Fadhilahn** (NIM: 130222XXXX - *Silakan lengkapi NIM Anda*)
+  1. **Rayazka Aris Fadhilahn** (NIM: 103022400096)
      * **Peran & Kontribusi**:
        * Merancang dan mengimplementasikan modul preprocessing data (`src/preprocessing.py`) termasuk pemuatan CSV ke NumPy, pemisahan data latih/uji (*train-test split*), dan normalisasi skala fitur (*Min-Max scaling*).
-       * Membangun model *K-Nearest Neighbors (KNN) Classifier* dari awal (*from scratch*) dengan optimasi komputasi matriks/vektorisasi NumPy (`src/model_knn.py`).
+       * Membangun model *K-Nearest Neighbors (KNN) Classifier* dengan optimasi komputasi matriks/vektorisasi NumPy (`src/model_knn.py`).
        * Mengintegrasikan metrik evaluasi (`src/evaluation.py`) dan merancang alur utama pipeline program (`main.py`).
        * Melakukan eksperimen tuning hyperparameter $K$ pada KNN dan menyusun visualisasi grafik laporan.
-  2. **Partner Kelompok** (NIM: 130222XXXX - *Silakan lengkapi nama dan NIM rekan kelompok*)
+  2. **Raka Putra** (NIM: 130222XXXX)
      * **Peran & Kontribusi**:
-       * Membangun model *Gaussian Naive Bayes Classifier* dari awal (*from scratch*) dengan memanfaatkan operasi kolom NumPy untuk perhitungan mean, varians, prior, dan likelihood secara efisien (`src/model_naive_bayes.py`).
+       * Membangun model *Gaussian Naive Bayes Classifier* dengan memanfaatkan operasi kolom NumPy untuk perhitungan mean, varians, prior, dan likelihood secara efisien (`src/model_naive_bayes.py`).
        * Membantu memvalidasi implementasi matematika model terhadap hasil pengujian serta melakukan analisis perbandingan performa.
-
----
 
 ## 1. DESKRIPSI KASUS, DATASET, & IMPLEMENTASI PREPROCESSING
 
@@ -153,16 +147,14 @@ def transform_min_max(X, scale_params):
 
 ---
 
-## 2. DESAIN ALGORITMA (FROM SCRATCH)
-
-Sesuai ketentuan tugas, kedua model klasifikasi dibangun sepenuhnya dari awal (*from scratch*) tanpa pustaka tingkat tinggi seperti *scikit-learn*.
+## 2. DESAIN ALGORITMA 
 
 ### A. K-Nearest Neighbors (KNN) Classifier
 
 #### 1. Definisi & Konsep Utama
 K-Nearest Neighbors (KNN) adalah algoritma klasifikasi berbasis instansi (*instance-based learning*). Algoritma ini tidak membuat model rumus baru, melainkan memprediksi kelas data baru dengan cara mencari $K$ sampel data latih yang memiliki karakteristik (jarak fitur) paling mirip, lalu melakukan voting suara terbanyak untuk menentukan kelas akhir.
 
-#### 2. Langkah-demi-Langkah Implementasi Kode & Hasil pada Data Kita
+#### 2. Langkah-demi-Langkah Implementasi Kode & Hasil pada Data
 
 ##### Langkah 1: Inisialisasi & Penyimpanan Data Latih (Fase Fit)
 KNN adalah *lazy learner*, sehingga tidak ada komputasi matematis saat latihan. Kita hanya menginisialisasi parameter $K$ dan menyimpan data latih berskala ke dalam memori objek.
